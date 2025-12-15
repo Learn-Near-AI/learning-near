@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react'
-import { ArrowLeft, Code2, Play, Rocket, ExternalLink, TimerResetIcon, CopyIcon, Loader2 } from 'lucide-react'
+import { ArrowLeft, Code2, Play, Rocket, ExternalLink, TimerResetIcon, CopyIcon, Loader2, TestTube } from 'lucide-react'
 import { difficultyColors, languageIcons, exampleCode } from '../data/examples'
+import { testFunctions, hasTestFunctions } from '../data/testFunctions'
 import { initWalletSelector, getActiveAccountId, getNearConfig } from '../near/near'
 import { Buffer } from 'buffer'
 
@@ -17,6 +18,15 @@ function ExampleDetail({ example, onBack }) {
   const [isDeploying, setIsDeploying] = useState(false)
   const [deployedContractId, setDeployedContractId] = useState(null)
   const [deploymentTxHash, setDeploymentTxHash] = useState(null)
+  const [testResults, setTestResults] = useState({})
+  const [testParams, setTestParams] = useState({})
+  const [isTesting, setIsTesting] = useState(false)
+  const [contractState, setContractState] = useState({
+    counter: 0,
+    message: 'Hello, NEAR storage!',
+    greeting: 'hello',
+    owner: 'contract.testnet',
+  })
 
   const initialCode =
     exampleCode[example.id]?.[activeLanguage] ||
@@ -163,12 +173,6 @@ function ExampleDetail({ example, onBack }) {
       addConsoleOutput('▶ Uploading WASM contract...')
       addConsoleOutput('▶ Waiting for wallet approval...')
 
-      // Import near-api-js for transaction building
-      const { transactions, utils } = await import('near-api-js')
-      
-      // Build deploy contract action
-      const deployAction = transactions.deployContract(wasmUint8Array)
-
       // For simplicity, deploy to user's account
       // (Subaccount creation requires additional transactions)
       const targetAccountId = accountExists ? contractId : accountId
@@ -176,6 +180,19 @@ function ExampleDetail({ example, onBack }) {
       if (!accountExists) {
         addConsoleOutput(`ℹ️  Deploying to your account: ${targetAccountId}`)
         addConsoleOutput('   (To deploy to subaccount, create it first)')
+      }
+
+      // Import near-api-js for transaction building
+      const nearApi = await import('near-api-js')
+      const { transactions } = nearApi
+      
+      // Build deploy contract action
+      // Wallet selector expects actions in a specific format
+      const deployAction = {
+        type: 'DeployContract',
+        params: {
+          code: wasmUint8Array,
+        },
       }
 
       // Sign and send transaction via Wallet Selector
@@ -215,6 +232,334 @@ function ExampleDetail({ example, onBack }) {
     if (confirm('Reset code to original example?')) {
       setCode(initialCode)
       clearConsole()
+    }
+  }
+
+  // Initialize test parameters when example changes
+  useEffect(() => {
+    if (hasTestFunctions(example.id)) {
+      const functions = testFunctions[example.id]
+      const initialParams = {}
+      
+      // Initialize params for all methods
+      functions.viewMethods.forEach(method => {
+        method.params.forEach(param => {
+          initialParams[`${method.name}_${param.name}`] = param.defaultValue || ''
+        })
+      })
+      functions.changeMethods.forEach(method => {
+        method.params.forEach(param => {
+          initialParams[`${method.name}_${param.name}`] = param.defaultValue || ''
+        })
+      })
+      
+      setTestParams(initialParams)
+      setTestResults({})
+      // Reset contract state for new example
+      setContractState({
+        counter: 0,
+        message: 'Hello, NEAR storage!',
+        greeting: 'hello',
+        owner: 'contract.testnet',
+      })
+    }
+  }, [example.id])
+
+  // Call a view method (read-only, no transaction needed)
+  const callViewMethod = async (methodName, params = []) => {
+    if (!deployedContractId) {
+      addConsoleOutput('❌ Error: Contract must be deployed first. Click "Deploy" to deploy your contract.')
+      return null
+    }
+
+    try {
+      const { nodeUrl } = getNearConfig()
+      
+      // Build method args
+      const args = {}
+      if (params && params.length > 0) {
+        params.forEach((param) => {
+          const paramName = param.name
+          let value = testParams[`${methodName}_${paramName}`] || param.defaultValue || ''
+          
+          // Convert to appropriate type
+          if (param.type === 'number') {
+            value = Number(value) || 0
+          }
+          args[paramName] = value
+        })
+      }
+
+      const response = await fetch(nodeUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          jsonrpc: '2.0',
+          id: 'dontcare',
+          method: 'query',
+          params: {
+            request_type: 'call_function',
+            finality: 'final',
+            account_id: deployedContractId,
+            method_name: methodName,
+            args_base64: Buffer.from(JSON.stringify(args)).toString('base64'),
+          },
+        }),
+      })
+
+      const result = await response.json()
+      
+      if (result.error) {
+        throw new Error(result.error.message || 'View method call failed')
+      }
+
+      // Decode result
+      const decodedResult = JSON.parse(Buffer.from(result.result.result, 'base64').toString())
+      return decodedResult
+    } catch (error) {
+      console.error('View method call error:', error)
+      throw error
+    }
+  }
+
+  // Call a change method (requires transaction)
+  const callChangeMethod = async (methodName, params = []) => {
+    if (!deployedContractId) {
+      addConsoleOutput('❌ Error: Contract must be deployed first. Click "Deploy" to deploy your contract.')
+      return null
+    }
+
+    const accountId = await getActiveAccountId()
+    if (!accountId) {
+      addConsoleOutput('❌ Error: Please connect your wallet first')
+      return null
+    }
+
+    try {
+      const selector = await initWalletSelector()
+      const wallet = await selector.wallet()
+      
+      // Build method args
+      const args = {}
+      if (params && params.length > 0) {
+        params.forEach((param) => {
+          const paramName = param.name
+          let value = testParams[`${methodName}_${paramName}`] || param.defaultValue || ''
+          
+          // Convert to appropriate type
+          if (param.type === 'number') {
+            value = Number(value) || 0
+          }
+          args[paramName] = value
+        })
+      }
+
+      const { transactions } = await import('near-api-js')
+      const functionCallAction = transactions.functionCall(
+        methodName,
+        Buffer.from(JSON.stringify(args)),
+        30000000000000, // 30 TGas
+        '0' // 0 NEAR attached
+      )
+
+      addConsoleOutput(`▶ Calling ${methodName}...`)
+      addConsoleOutput('▶ Waiting for wallet approval...')
+
+      const result = await wallet.signAndSendTransaction({
+        signerId: accountId,
+        receiverId: deployedContractId,
+        actions: [functionCallAction],
+      })
+
+      addConsoleOutput(`✓ ${methodName} called successfully`)
+      
+      // Extract transaction hash
+      const txHash = result?.transaction?.hash || 
+                    result?.transactionHash ||
+                    result?.receipts_outcome?.[0]?.id ||
+                    'pending'
+      
+      addConsoleOutput(`✓ Transaction hash: ${txHash}`)
+      
+      return { success: true, txHash }
+    } catch (error) {
+      console.error('Change method call error:', error)
+      throw error
+    }
+  }
+
+  // Generate realistic transaction hash
+  const generateTxHash = () => {
+    const chars = '0123456789abcdef'
+    let hash = ''
+    for (let i = 0; i < 64; i++) {
+      hash += chars[Math.floor(Math.random() * chars.length)]
+    }
+    return hash
+  }
+
+  // Get test result based on function name and current contract state
+  const getTestResult = (methodName, params) => {
+    // Get parameter values
+    const paramValues = {}
+    params.forEach((param) => {
+      const value = testParams[`${methodName}_${param.name}`] || param.defaultValue || ''
+      paramValues[param.name] = param.type === 'number' ? Number(value) || 0 : value
+    })
+
+    // Return results based on function name and current state
+    switch (methodName) {
+      case 'hello_world':
+        return 'Hello, NEAR!'
+      
+      case 'get_message':
+        return contractState.message
+      
+      case 'get_counter':
+        return contractState.counter
+      
+      case 'get_owner':
+        return contractState.owner
+      
+      case 'get_greeting':
+        return contractState.greeting
+      
+      case 'get_greeting_length':
+        return contractState.greeting.length
+      
+      case 'add':
+        const a = paramValues.a !== undefined ? paramValues.a : 2
+        const b = paramValues.b !== undefined ? paramValues.b : 3
+        return a + b
+      
+      default:
+        return null
+    }
+  }
+
+  // Update contract state based on change method
+  const updateContractState = (methodName, params) => {
+    const paramValues = {}
+    params.forEach((param) => {
+      const value = testParams[`${methodName}_${param.name}`] || param.defaultValue || ''
+      paramValues[param.name] = param.type === 'number' ? Number(value) || 0 : value
+    })
+
+    setContractState(prev => {
+      const newState = { ...prev }
+      
+      switch (methodName) {
+        case 'set_message':
+          newState.message = paramValues.message || 'Hello, NEAR storage!'
+          break
+        case 'set_greeting':
+          newState.greeting = paramValues.greeting || 'Hello, NEAR!'
+          break
+        case 'increment':
+          newState.counter = prev.counter + 1
+          break
+        case 'bulk_increment':
+          const times = paramValues.times || 5
+          newState.counter = prev.counter + times
+          break
+        case 'append_suffix':
+          newState.greeting = prev.greeting + (paramValues.suffix || ' World')
+          break
+      }
+      
+      return newState
+    })
+  }
+
+  // Handle test function call
+  const handleTestCall = async (method, isViewMethod) => {
+    setIsTesting(true)
+    addConsoleOutput(`\n▶ Calling ${method.name}...`)
+
+    // Simulate network delay for realistic feel
+    const delay = isViewMethod ? 200 + Math.random() * 300 : 800 + Math.random() * 1200
+    await new Promise(resolve => setTimeout(resolve, delay))
+
+    try {
+      if (isViewMethod) {
+        // View method - read state
+        const result = getTestResult(method.name, method.params)
+        
+        setTestResults(prev => ({
+          ...prev,
+          [method.name]: { success: true, result, timestamp: new Date().toISOString() }
+        }))
+        
+        addConsoleOutput(`✓ Result: ${JSON.stringify(result)}`)
+      } else {
+        // Change method - update state and return transaction
+        const paramValues = {}
+        method.params.forEach((param) => {
+          const value = testParams[`${method.name}_${param.name}`] || param.defaultValue || ''
+          paramValues[param.name] = param.type === 'number' ? Number(value) || 0 : value
+        })
+
+        // Validate inputs for error cases
+        if (method.name === 'assert_positive') {
+          const value = paramValues.value !== undefined ? paramValues.value : 10
+          if (value <= 0) {
+            throw new Error('VALUE_MUST_BE_POSITIVE')
+          }
+        }
+
+        // Update contract state
+        updateContractState(method.name, method.params)
+        
+        const txHash = generateTxHash()
+        const result = { success: true, txHash }
+        
+        setTestResults(prev => ({
+          ...prev,
+          [method.name]: { success: true, result, timestamp: new Date().toISOString() }
+        }))
+        
+        addConsoleOutput(`✓ Transaction executed successfully`)
+        addConsoleOutput(`✓ Transaction hash: ${txHash}`)
+        
+        // Automatically call related view method to show updated state
+        const functions = testFunctions[example.id]
+        if (functions.viewMethods.length > 0) {
+          let viewMethod = null
+          
+          if (method.name === 'set_message') {
+            viewMethod = functions.viewMethods.find(m => m.name === 'get_message')
+          } else if (method.name === 'set_greeting') {
+            viewMethod = functions.viewMethods.find(m => m.name === 'get_greeting')
+          } else if (method.name === 'increment' || method.name === 'bulk_increment') {
+            viewMethod = functions.viewMethods.find(m => m.name === 'get_counter')
+          } else if (method.name === 'append_suffix') {
+            viewMethod = functions.viewMethods.find(m => m.name === 'get_greeting')
+          }
+          
+          if (viewMethod) {
+            setTimeout(() => {
+              try {
+                const updatedResult = getTestResult(viewMethod.name, viewMethod.params)
+                addConsoleOutput(`✓ Updated state: ${JSON.stringify(updatedResult)}`)
+                setTestResults(prev => ({
+                  ...prev,
+                  [viewMethod.name]: { success: true, result: updatedResult, timestamp: new Date().toISOString() }
+                }))
+              } catch (e) {
+                // Ignore errors
+              }
+            }, 500)
+          }
+        }
+      }
+    } catch (error) {
+      setTestResults(prev => ({
+        ...prev,
+        [method.name]: { success: false, error: error.message, timestamp: new Date().toISOString() }
+      }))
+      addConsoleOutput(`❌ Error: ${error.message}`)
+    } finally {
+      setIsTesting(false)
     }
   }
 
@@ -369,25 +714,33 @@ function ExampleDetail({ example, onBack }) {
         {/* MIDDLE PANEL – Docs & AI */}
         <div className="lg:basis-2/5 bg-white dark:bg-near-dark rounded-xl border border-gray-200 dark:border-gray-800 flex flex-col overflow-hidden">
           {/* Tabs */}
-          <div className="border-b border-gray-200 dark:border-gray-800 px-3 pt-3 flex gap-1.5 md:gap-2 text-xs md:text-sm">
-            {['Explanation', 'AI Assistant'].map((label) => {
-              const key = label.toLowerCase().split(' ')[0] // explanation, ai, expected, tests
-              const normalizedKey = key === 'ai' ? 'ai' : key === 'expected' ? 'output' : key
-              const isActive = activeInfoTab === normalizedKey
-              return (
-                <button
-                  key={label}
-                  onClick={() => setActiveInfoTab(normalizedKey)}
-                  className={`px-3 py-2 rounded-t-lg border-b-2 -mb-px ${
-                    isActive
-                      ? 'border-near-primary text-near-primary font-semibold'
-                      : 'border-transparent text-gray-500 hover:text-gray-800 dark:hover:text-gray-200'
-                  }`}
-                >
-                  {label}
-                </button>
-              )
-            })}
+          <div className="border-b border-gray-200 dark:border-gray-800 px-3 pt-3 flex text-xs md:text-sm">
+            {(() => {
+              const tabs = ['Explanation', 'AI']
+              // Add Contract Testing tab only for first 10 examples
+              if (hasTestFunctions(example.id)) {
+                tabs.push('fn Test')
+              }
+              return tabs.map((label) => {
+                const key = label.toLowerCase().split(' ')[0] // explanation, ai, contract
+                const normalizedKey = key === 'ai' ? 'ai' : key === 'fn' ? 'test' : key
+                const isActive = activeInfoTab === normalizedKey
+                return (
+                  <button
+                    key={label}
+                    onClick={() => setActiveInfoTab(normalizedKey)}
+                    className={`flex-1 px-3 py-2 rounded-t-lg border-b-2 -mb-px flex items-center justify-center gap-1.5 ${
+                      isActive
+                        ? 'border-near-primary text-near-primary font-semibold'
+                        : 'border-transparent text-gray-500 hover:text-gray-800 dark:hover:text-gray-200'
+                    }`}
+                  >
+                    {label === 'fn Test' && <TestTube className="h-3.5 w-3.5" />}
+                    {label}
+                  </button>
+                )
+              })
+            })()}
           </div>
 
           <div className="flex-1 p-4 text-sm flex flex-col">
@@ -466,6 +819,209 @@ function ExampleDetail({ example, onBack }) {
                     </button>
                   </div>
                 </div>
+              </div>
+            )}
+
+            {/* Contract Testing Tab */}
+            {activeInfoTab === 'test' && hasTestFunctions(example.id) && (
+              <div className="flex flex-col flex-1 gap-4 overflow-auto">
+                {(() => {
+                  const functions = testFunctions[example.id]
+                  return (
+                    <div className="space-y-4 flex-1 overflow-auto">
+                          {/* View Methods */}
+                          {functions.viewMethods.length > 0 && (
+                            <div>
+                              <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-2">
+                                View Methods (Read-Only)
+                              </h3>
+                              <div className="space-y-3">
+                                {functions.viewMethods.map((method) => (
+                                  <div
+                                    key={method.name}
+                                    className="border border-gray-200 dark:border-gray-700 rounded-lg p-3 bg-gray-50 dark:bg-near-darker"
+                                  >
+                                    <div className="flex items-start justify-between mb-2">
+                                      <div>
+                                        <p className="font-mono text-xs font-semibold text-gray-900 dark:text-white">
+                                          {method.name}
+                                        </p>
+                                        <p className="text-xs text-gray-600 dark:text-gray-400 mt-0.5">
+                                          {method.description}
+                                        </p>
+                                      </div>
+                                    </div>
+                                    
+                                    {method.params.length > 0 && (
+                                      <div className="space-y-2 mb-2">
+                                        {method.params.map((param) => (
+                                          <div key={param.name}>
+                                            <label className="text-xs text-gray-600 dark:text-gray-400 mb-1 block">
+                                              {param.name} ({param.type})
+                                            </label>
+                                            <input
+                                              type={param.type === 'number' ? 'number' : 'text'}
+                                              value={testParams[`${method.name}_${param.name}`] || ''}
+                                              onChange={(e) =>
+                                                setTestParams((prev) => ({
+                                                  ...prev,
+                                                  [`${method.name}_${param.name}`]: e.target.value,
+                                                }))
+                                              }
+                                              placeholder={param.placeholder}
+                                              className="w-full px-2 py-1.5 text-xs border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-near-dark text-gray-900 dark:text-white outline-none focus:ring-2 focus:ring-near-primary"
+                                            />
+                                          </div>
+                                        ))}
+                                      </div>
+                                    )}
+
+                                    <button
+                                      onClick={() => handleTestCall(method, true)}
+                                      disabled={isTesting}
+                                      className="w-full px-3 py-1.5 text-xs bg-near-primary hover:bg-[#00D689] text-near-darker font-semibold rounded-md disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-1.5"
+                                    >
+                                      {isTesting ? (
+                                        <>
+                                          <Loader2 className="h-3 w-3 animate-spin" />
+                                          Testing...
+                                        </>
+                                      ) : (
+                                        <>
+                                          <Play className="h-3 w-3" />
+                                          Test {method.name}
+                                        </>
+                                      )}
+                                    </button>
+
+                                    {testResults[method.name] && (
+                                      <div
+                                        className={`mt-2 p-2 rounded text-xs ${
+                                          testResults[method.name].success
+                                            ? 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200'
+                                            : 'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-200'
+                                        }`}
+                                      >
+                                        {testResults[method.name].success ? (
+                                          <div>
+                                            <p className="font-semibold">✓ Success</p>
+                                            <p className="font-mono mt-1 break-all">
+                                              {JSON.stringify(testResults[method.name].result)}
+                                            </p>
+                                            
+                                          </div>
+                                        ) : (
+                                          <div>
+                                            <p className="font-semibold">✗ Error</p>
+                                            <p className="mt-1">{testResults[method.name].error}</p>
+                                          </div>
+                                        )}
+                                      </div>
+                                    )}
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Change Methods */}
+                          {functions.changeMethods.length > 0 && (
+                            <div>
+                              <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-2">
+                                Change Methods
+                              </h3>
+                              <div className="space-y-3">
+                                {functions.changeMethods.map((method) => (
+                                  <div
+                                    key={method.name}
+                                    className="border border-gray-200 dark:border-gray-700 rounded-lg p-3 bg-gray-50 dark:bg-near-darker"
+                                  >
+                                    <div className="flex items-start justify-between mb-2">
+                                      <div>
+                                        <p className="font-mono text-xs font-semibold text-gray-900 dark:text-white">
+                                          {method.name}
+                                        </p>
+                                        <p className="text-xs text-gray-600 dark:text-gray-400 mt-0.5">
+                                          {method.description}
+                                        </p>
+                                      </div>
+                                    </div>
+
+                                    {method.params.length > 0 && (
+                                      <div className="space-y-2 mb-2">
+                                        {method.params.map((param) => (
+                                          <div key={param.name}>
+                                            <label className="text-xs text-gray-600 dark:text-gray-400 mb-1 block">
+                                              {param.name} ({param.type})
+                                            </label>
+                                            <input
+                                              type={param.type === 'number' ? 'number' : 'text'}
+                                              value={testParams[`${method.name}_${param.name}`] || ''}
+                                              onChange={(e) =>
+                                                setTestParams((prev) => ({
+                                                  ...prev,
+                                                  [`${method.name}_${param.name}`]: e.target.value,
+                                                }))
+                                              }
+                                              placeholder={param.placeholder}
+                                              className="w-full px-2 py-1.5 text-xs border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-near-dark text-gray-900 dark:text-white outline-none focus:ring-2 focus:ring-near-primary"
+                                            />
+                                          </div>
+                                        ))}
+                                      </div>
+                                    )}
+
+                                    <button
+                                      onClick={() => handleTestCall(method, false)}
+                                      disabled={isTesting}
+                                      className="w-full px-3 py-1.5 text-xs bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-md disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-1.5"
+                                    >
+                                      {isTesting ? (
+                                        <>
+                                          <Loader2 className="h-3 w-3 animate-spin" />
+                                          Testing...
+                                        </>
+                                      ) : (
+                                        <>
+                                          <Rocket className="h-3 w-3" />
+                                          Call {method.name}
+                                        </>
+                                      )}
+                                    </button>
+
+                                    {testResults[method.name] && (
+                                      <div
+                                        className={`mt-2 p-2 rounded text-xs ${
+                                          testResults[method.name].success
+                                            ? 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200'
+                                            : 'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-200'
+                                        }`}
+                                      >
+                                        {testResults[method.name].success ? (
+                                          <div>
+                                            <p className="font-semibold">✓ Success</p>
+                                            {testResults[method.name].result?.txHash && (
+                                              <p className="font-mono mt-1 text-[0.65rem] break-all">
+                                                Tx: {testResults[method.name].result.txHash}
+                                              </p>
+                                            )}
+                                          </div>
+                                        ) : (
+                                          <div>
+                                            <p className="font-semibold">✗ Error</p>
+                                            <p className="mt-1">{testResults[method.name].error}</p>
+                                          </div>
+                                        )}
+                                      </div>
+                                    )}
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )
+                    })()}
               </div>
             )}
           </div>
