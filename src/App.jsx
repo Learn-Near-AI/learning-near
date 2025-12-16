@@ -408,7 +408,7 @@ function App() {
         </div>
 
         {/* Quick Stats Banner */}
-        <div className="relative border-t border-gray-200 dark:border-gray-800 bg-white/50 dark:bg-near-dark/50 backdrop-blur-sm" data-aos="fade-up" data-aos-delay="400">
+        <div className="relative border-t border-gray-200 dark:border-gray-800 bg-white/50 dark:bg-[#0B0D1A] backdrop-blur-sm" data-aos="fade-up" data-aos-delay="400">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
             <div className="grid grid-cols-2 md:grid-cols-4 gap-6 text-center">
               <div data-aos="zoom-in" data-aos-delay="100">
@@ -647,7 +647,7 @@ function App() {
               </a>
               <div className="flex items-center gap-2 text-gray-600 dark:text-gray-400">
                 <Github className="h-5 w-5" />
-                <span>GitHub Stars: <span className="text-near-primary font-semibold">1.2k+</span></span>
+                <span>GitHub Stars </span>
               </div>
               <div className="flex items-center gap-2 text-near-primary">
                 <CheckCircle2 className="h-5 w-5" />

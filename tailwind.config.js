@@ -13,8 +13,8 @@ export default {
       colors: {
         near: {
           primary: '#00EC97',
-          dark: '#24272A',
-          darker: '#1A1D20',
+          dark: '#13172B',
+          darker: '#0B0D1A',
         }
       }
     },

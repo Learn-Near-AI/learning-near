@@ -120,9 +120,9 @@ function ExamplesBrowser({ isDark, toggleTheme }) {
       </div>
 
       {/* Main Layout */}
-      <div className="flex max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-8">
+      <div className="flex max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-8 pt-6">
         {/* Left Sidebar - 20% width */}
-        <div className="w-1/5 border-r border-gray-200 dark:border-gray-800 bg-white dark:bg-near-dark">
+        <div className="w-1/5 border-r border-gray-200 dark:border-gray-800 bg-white dark:bg-near-dark rounded-t-xl">
           <CategorySidebar
             groupedExamples={groupedExamples}
             expandedCategories={expandedCategories}
