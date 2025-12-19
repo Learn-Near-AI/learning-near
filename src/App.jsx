@@ -60,7 +60,7 @@ function App() {
     }
   }, [isDark])
 
-  // Initialize Wallet Selector (Meteor) and keep active account + balance in sync
+  // Initialize Wallet Selector (MyNearWallet) and keep active account + balance in sync
   useEffect(() => {
     ;(async () => {
       try {

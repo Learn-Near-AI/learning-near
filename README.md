@@ -7,29 +7,54 @@ An interactive learning platform that teaches NEAR smart contract development th
 ### Prerequisites
 
 - Node.js 18+ and npm/yarn/pnpm
-- NEAR Wallet (Meteor Wallet extension recommended)
+- NEAR Wallet (MyNearWallet - https://testnet.mynearwallet.com/)
 
 ### Installation
 
+#### Frontend Setup
+
 ```bash
-# Install dependencies
+# Install frontend dependencies
 npm install
 
-# Start both frontend and backend servers
-npm run dev:all
-
-# Or run separately:
-# Frontend only (port 5173)
+# Start frontend development server (port 5173)
 npm run dev
-
-# Backend only (port 3001)
-npm run dev:server
 
 # Build for production
 npm run build
 
 # Preview production build
 npm run preview
+```
+
+#### Backend Setup
+
+```bash
+# Navigate to backend directory
+cd backend
+
+# Install backend dependencies
+npm install
+
+# Start backend server (port 3001)
+npm run dev
+# or
+npm start
+```
+
+#### Running Both Separately
+
+Open two terminal windows:
+
+**Terminal 1 - Frontend:**
+```bash
+npm run dev
+```
+
+**Terminal 2 - Backend:**
+```bash
+cd backend
+npm run dev
 ```
 
 ### Environment Setup
@@ -47,7 +72,7 @@ VITE_API_URL=http://localhost:3001
 - **React 18** - UI framework
 - **Tailwind CSS** - Utility-first CSS framework
 - **Lucide React** - Beautiful icon library
-- **NEAR Wallet Selector** - Wallet integration (Meteor Wallet)
+- **NEAR Wallet Selector** - Wallet integration (MyNearWallet)
 
 ### Backend
 - **Express** - Node.js web server
@@ -69,10 +94,11 @@ VITE_API_URL=http://localhost:3001
 │   └── main.jsx         # React entry point
 ├── backend/
 │   ├── server.js        # Express backend server
-│   └── build-contract.js# Contract compilation utility
+│   ├── build-contract.js# Contract compilation utility
+│   └── package.json     # Backend dependencies and scripts
 ├── index.html           # HTML template
 ├── vite.config.js       # Vite configuration
-└── package.json         # Dependencies and scripts
+└── package.json         # Frontend dependencies and scripts
 ```
 
 ## 🎨 Features
@@ -80,7 +106,7 @@ VITE_API_URL=http://localhost:3001
 - **Interactive Code Editor** - Edit TypeScript/JavaScript contracts in-browser
 - **Compile & Deploy** - Compile contracts and deploy to NEAR TestNet
 - **Run Contracts** - Execute contract methods and view results
-- **Wallet Integration** - Connect with Meteor Wallet extension
+- **Wallet Integration** - Connect with MyNearWallet (https://testnet.mynearwallet.com/)
 - **60+ Examples** - Categorized by difficulty and topic
 - **AI Assistant** - Get help understanding code (UI ready)
 
