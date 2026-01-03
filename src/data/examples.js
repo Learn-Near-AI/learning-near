@@ -95,8 +95,6 @@ export const languageIcons = {
   'Rust': '⚽',
   'JS': '📜',
   'JavaScript': '📜',
-  'TS': '📘',
-  'TypeScript': '📘',
 }
 
 // Real, minimal NEAR contract code for each example & language.
@@ -127,16 +125,6 @@ class Contract {
 }
 
 export default Contract;`,
-    TypeScript: `// near-sdk-js hello world (TypeScript)
-import { NearBindgen, view } from "near-sdk-js";
-
-@NearBindgen({})
-export class Contract {
-  @view({})
-  hello_world(): string {
-    return "Hello, NEAR!";
-  }
-}`,
   },
   'storage-basics': {
     Rust: `use near_sdk::{near_bindgen, BorshStorageKey};
@@ -188,24 +176,6 @@ class Contract {
 }
 
 export default Contract;`,
-    TypeScript: `// near-sdk-js storage basics (TypeScript)
-import { NearBindgen, view, call, near } from "near-sdk-js";
-
-@NearBindgen({})
-export class Contract {
-  message: string = "Hello, NEAR storage!";
-
-  @view({})
-  get_message(): string {
-    return this.message;
-  }
-
-  @call({})
-  set_message({ message }: { message: string }): void {
-    near.log(\`Updating message to: \${message}\`);
-    this.message = message;
-  }
-}`,
   },
   'state-management': {
     Rust: `use near_sdk::near_bindgen;
@@ -254,23 +224,6 @@ class Contract {
 }
 
 export default Contract;`,
-    TypeScript: `// near-sdk-js state management (TypeScript)
-import { NearBindgen, view, call } from "near-sdk-js";
-
-@NearBindgen({})
-export class Contract {
-  counter: number = 0;
-
-  @view({})
-  get_counter(): number {
-    return this.counter;
-  }
-
-  @call({})
-  increment(): void {
-    this.counter += 1;
-  }
-}`,
   },
   'contract-structure': {
     Rust: `use near_sdk::{near_bindgen, env, AccountId};
@@ -312,18 +265,6 @@ class Contract {
 }
 
 export default Contract;`,
-    TypeScript: `// near-sdk-js contract structure (TypeScript)
-import { NearBindgen, view, near } from "near-sdk-js";
-
-@NearBindgen({})
-export class Contract {
-  owner_id: string = near.currentAccountId();
-
-  @view({})
-  get_owner(): string {
-    return this.owner_id;
-  }
-}`,
   },
   'view-methods': {
     Rust: `use near_sdk::near_bindgen;
@@ -365,23 +306,6 @@ class Contract {
 }
 
 export default Contract;`,
-    TypeScript: `// near-sdk-js view methods (TypeScript)
-import { NearBindgen, view } from "near-sdk-js";
-
-@NearBindgen({})
-export class Contract {
-  greeting: string = "hello";
-
-  @view({})
-  get_greeting(): string {
-    return this.greeting;
-  }
-
-  @view({})
-  get_greeting_length(): number {
-    return this.greeting.length;
-  }
-}`,
   },
   'change-methods': {
     Rust: `use near_sdk::near_bindgen;
@@ -438,29 +362,6 @@ class Contract {
 }
 
 export default Contract;`,
-    TypeScript: `// near-sdk-js change methods (TypeScript)
-import { NearBindgen, view, call, near } from "near-sdk-js";
-
-@NearBindgen({})
-export class Contract {
-  greeting: string = "hello";
-
-  @view({})
-  get_greeting(): string {
-    return this.greeting;
-  }
-
-  @call({})
-  set_greeting({ greeting }: { greeting: string }): void {
-    near.log(\`Setting greeting to \${greeting}\`);
-    this.greeting = greeting;
-  }
-
-  @call({})
-  append_suffix({ suffix }: { suffix: string }): void {
-    this.greeting = this.greeting + suffix;
-  }
-}`,
   },
   events: {
     Rust: `use near_sdk::{near_bindgen, env};
@@ -509,24 +410,6 @@ class Contract {
 }
 
 export default Contract;`,
-    TypeScript: `// near-sdk-js events (TypeScript) using structured logs
-import { NearBindgen, call, near } from "near-sdk-js";
-
-@NearBindgen({})
-export class Contract {
-  message: string = "initial";
-
-  @call({})
-  set_message({ message }: { message: string }): void {
-    near.log(
-      JSON.stringify({
-        event: "MessageUpdated",
-        new_message: message,
-      }),
-    );
-    this.message = message;
-  }
-}`,
   },
   errors: {
     Rust: `use near_sdk::{near_bindgen, env};
@@ -568,25 +451,6 @@ class Contract {
 }
 
 export default Contract;`,
-    TypeScript: `// near-sdk-js error handling (TypeScript)
-import { NearBindgen, call, near } from "near-sdk-js";
-
-@NearBindgen({})
-export class Contract {
-  @call({})
-  assert_positive({ value }: { value: number }): void {
-    if (value <= 0) {
-      near.panic("VALUE_MUST_BE_POSITIVE");
-    }
-  }
-
-  @call({})
-  assert_caller({ expected_account }: { expected_account: string }): void {
-    if (near.predecessorAccountId() !== expected_account) {
-      near.panic("ONLY_EXPECTED_CALLER");
-    }
-  }
-}`,
   },
   'gas-optimization': {
     Rust: `use near_sdk::near_bindgen;
@@ -642,25 +506,6 @@ class Contract {
 }
 
 export default Contract;`,
-    TypeScript: `// near-sdk-js gas optimization (TypeScript)
-import { NearBindgen, view, call } from "near-sdk-js";
-
-@NearBindgen({})
-export class Contract {
-  counter: number = 0;
-
-  @view({})
-  get_counter(): number {
-    return this.counter;
-  }
-
-  @call({})
-  bulk_increment({ times }: { times: number }): void {
-    for (let i = 0; i < times; i += 1) {
-      this.counter += 1;
-    }
-  }
-}`,
   },
   testing: {
     Rust: `use near_sdk::near_bindgen;
@@ -699,16 +544,6 @@ class Contract {
 }
 
 export default Contract;`,
-    TypeScript: `// near-sdk-js testing example (TypeScript)
-import { NearBindgen, view } from "near-sdk-js";
-
-@NearBindgen({})
-export class Contract {
-  @view({})
-  add({ a, b }: { a: number; b: number }): number {
-    return a + b;
-  }
-}`,
   },
 }
 

@@ -9,16 +9,18 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "react": "^18.2.0",
-    "react-dom": "^18.2.0",
-    "react-router-dom": "^6.20.1",
-    "lucide-react": "^0.294.0",
-    "aos": "^2.3.4",
-    "near-api-js": "^5.0.0",
-    "buffer": "^6.0.3",
+    "@google/genai": "^1.34.0",
     "@near-wallet-selector/core": "^8.9.1",
     "@near-wallet-selector/modal-ui": "^8.9.1",
-    "@near-wallet-selector/my-near-wallet": "^8.9.1"
+    "@near-wallet-selector/my-near-wallet": "^8.9.1",
+    "aos": "^2.3.4",
+    "buffer": "^6.0.3",
+    "lucide-react": "^0.294.0",
+    "near-api-js": "^5.0.0",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "react-markdown": "^10.1.0",
+    "react-router-dom": "^6.20.1"
   },
   "devDependencies": {
     "@types/react": "^18.2.43",
@@ -30,4 +32,3 @@
     "vite": "^5.0.8"
   }
 }
-

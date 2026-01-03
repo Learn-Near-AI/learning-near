@@ -64,58 +64,14 @@ function WelcomeContent({ filteredExamples, onExampleSelect }) {
         </div>
       )}
 
-      {/* Getting Started Guide */}
-      <div className="bg-white dark:bg-near-dark rounded-xl p-8 border border-gray-200 dark:border-gray-800">
-        <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-6">
-          Getting Started
-        </h2>
-        <div className="grid md:grid-cols-3 gap-6">
-          <div className="flex items-start gap-4">
-            <div className="w-12 h-12 bg-near-primary/10 rounded-lg flex items-center justify-center flex-shrink-0">
-              <span className="text-xl font-bold text-near-primary">1</span>
-            </div>
-            <div>
-              <h3 className="font-semibold text-gray-900 dark:text-white mb-2">
-                Browse Examples
-              </h3>
-              <p className="text-sm text-gray-600 dark:text-gray-400">
-                Explore examples by category or use the search bar to find specific topics.
-              </p>
-            </div>
-          </div>
-          <div className="flex items-start gap-4">
-            <div className="w-12 h-12 bg-near-primary/10 rounded-lg flex items-center justify-center flex-shrink-0">
-              <span className="text-xl font-bold text-near-primary">2</span>
-            </div>
-            <div>
-              <h3 className="font-semibold text-gray-900 dark:text-white mb-2">
-                Learn & Experiment
-              </h3>
-              <p className="text-sm text-gray-600 dark:text-gray-400">
-                Read the code, ask questions, and modify examples to see how they work.
-              </p>
-            </div>
-          </div>
-          <div className="flex items-start gap-4">
-            <div className="w-12 h-12 bg-near-primary/10 rounded-lg flex items-center justify-center flex-shrink-0">
-              <Rocket className="h-6 w-6 text-near-primary" />
-            </div>
-            <div>
-              <h3 className="font-semibold text-gray-900 dark:text-white mb-2">
-                Deploy & Build
-              </h3>
-              <p className="text-sm text-gray-600 dark:text-gray-400">
-                Deploy your contracts to TestNet and start building real applications.
-              </p>
-            </div>
-          </div>
-        </div>
-      </div>
+     
     </div>
   )
 }
 
 export default WelcomeContent
+
+
 
 
 
