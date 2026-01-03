@@ -1,0 +1,1 @@
+{"rustc":791159454534303342,"features":"","declared_features":"","target":0,"profile":0,"path":0,"deps":[[8150928188264094820,"build_script_build",false,8369934944831442709]],"local":[{"RerunIfChanged":{"output":"wasm32-unknown-unknown\\release\\build\\zmij-f4b1ca5a481b7e3d\\output","paths":["build.rs"]}}],"rustflags":[],"config":0,"compile_kind":0}
