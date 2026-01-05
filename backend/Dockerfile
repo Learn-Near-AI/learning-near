@@ -24,8 +24,8 @@ RUN npm ci
 # Copy backend source code
 COPY . .
 
-# Create necessary directories
-RUN mkdir -p temp-builds base-project
+# Create necessary directories for builds and caching
+RUN mkdir -p temp-builds base-project persistent-builds shared-target
 
 # Expose port
 EXPOSE 3001

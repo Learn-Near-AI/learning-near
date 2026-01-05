@@ -37,7 +37,7 @@ class Contract {
 export default Contract;`,
   },
   'panic-handling': {
-    Rust: `use near_sdk::{near_bindgen, env};
+    Rust: `use near_sdk::{near_bindgen, env, require};
 
 #[near_bindgen]
 #[derive(Default)]
@@ -98,7 +98,7 @@ impl Contract {
     pub fn deposit(&mut self, amount: u64) {
         self.balance += amount;
         env::log_str(&format!(
-            "EVENT_JSON:{{\"event\":\"Deposit\",\"account\":\"{}\",\"amount\":{}}}",
+            "EVENT_JSON:{{\\\"event\\\":\\\"Deposit\\\",\\\"account\\\":\\\"{}\\\",\\\"amount\\\":{}}}",
             env::predecessor_account_id(),
             amount
         ));
@@ -233,7 +233,7 @@ class Contract {
 export default Contract;`,
   },
   'complete-example': {
-    Rust: `use near_sdk::{near_bindgen, env, AccountId, borsh::{self, BorshDeserialize, BorshSerialize}};
+    Rust: `use near_sdk::{near_bindgen, env, AccountId, require, borsh::{self, BorshDeserialize, BorshSerialize}};
 use near_sdk::collections::UnorderedMap;
 
 #[derive(BorshDeserialize, BorshSerialize)]

@@ -1,7 +1,7 @@
 // Security and access control examples
 export const securityCode = {
   'owner-pattern': {
-    Rust: `use near_sdk::{near_bindgen, env, AccountId};
+    Rust: `use near_sdk::{near_bindgen, env, AccountId, require};
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 
 #[near_bindgen]
@@ -71,7 +71,7 @@ class Contract {
 export default Contract;`,
   },
   'role-based-access': {
-    Rust: `use near_sdk::{near_bindgen, env, AccountId, borsh::{self, BorshDeserialize, BorshSerialize}};
+    Rust: `use near_sdk::{near_bindgen, env, AccountId, require, borsh::{self, BorshDeserialize, BorshSerialize}};
 use near_sdk::collections::UnorderedSet;
 
 #[near_bindgen]
@@ -136,7 +136,7 @@ class Contract {
 export default Contract;`,
   },
   'pausable-contract': {
-    Rust: `use near_sdk::{near_bindgen, env, AccountId, borsh::{self, BorshDeserialize, BorshSerialize}};
+    Rust: `use near_sdk::{near_bindgen, env, AccountId, require, borsh::{self, BorshDeserialize, BorshSerialize}};
 
 #[near_bindgen]
 #[derive(BorshDeserialize, BorshSerialize)]
@@ -221,7 +221,7 @@ class Contract {
 export default Contract;`,
   },
   'multi-signature': {
-    Rust: `use near_sdk::{near_bindgen, env, AccountId, borsh::{self, BorshDeserialize, BorshSerialize}};
+    Rust: `use near_sdk::{near_bindgen, env, AccountId, require, borsh::{self, BorshDeserialize, BorshSerialize}};
 use near_sdk::collections::UnorderedSet;
 
 #[near_bindgen]
@@ -288,7 +288,7 @@ class Contract {
 export default Contract;`,
   },
   'reentrancy-guard': {
-    Rust: `use near_sdk::{near_bindgen, env, borsh::{self, BorshDeserialize, BorshSerialize}};
+    Rust: `use near_sdk::{near_bindgen, env, require, borsh::{self, BorshDeserialize, BorshSerialize}};
 
 #[near_bindgen]
 #[derive(BorshDeserialize, BorshSerialize)]

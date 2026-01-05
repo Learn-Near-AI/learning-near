@@ -1,6 +1,6 @@
 import { writeFile, mkdir, readFile, rm, readdir, copyFile } from 'fs/promises'
 import { join } from 'path'
-import { randomBytes } from 'crypto'
+import { randomBytes, createHash } from 'crypto'
 import { exec } from 'child_process'
 import { promisify } from 'util'
 import { existsSync } from 'fs'
@@ -29,6 +29,13 @@ async function copyDir(src, dst) {
       await copyFile(srcPath, dstPath)
     }
   }
+}
+
+/**
+ * Get shared target directory path for all builds
+ */
+function getSharedTargetDir() {
+  return join(process.cwd(), 'shared-target')
 }
 
 /**
@@ -84,12 +91,17 @@ impl Contract {
 `
     await writeFile(join(baseProjectPath, 'src', 'lib.rs'), defaultLibRs, 'utf-8')
     
-    // Build base project to cache dependencies
+    // Build base project to cache dependencies using shared target
     console.log('Building base project to cache dependencies...')
+    const sharedTargetDir = getSharedTargetDir()
     try {
       await execAsync('cargo build --target wasm32-unknown-unknown --release', {
         cwd: baseProjectPath,
-        maxBuffer: 10 * 1024 * 1024 // 10MB buffer
+        maxBuffer: 10 * 1024 * 1024, // 10MB buffer
+        env: {
+          ...process.env,
+          CARGO_TARGET_DIR: sharedTargetDir
+        }
       })
       console.log('Base project built successfully')
     } catch (error) {
@@ -252,9 +264,16 @@ function convertToNewSyntax(sourceCode) {
  */
 export async function buildRustContract(sourceCode, projectId = null) {
   const baseProjectPath = join(process.cwd(), 'base-project')
-  const tempDir = projectId 
-    ? join(process.cwd(), 'temp-builds', projectId)
-    : join(process.cwd(), 'temp-builds', randomBytes(8).toString('hex'))
+  const sharedTargetDir = getSharedTargetDir()
+  
+  // Convert old syntax to new syntax if needed
+  const convertedCode = convertToNewSyntax(sourceCode)
+  
+  // Generate project directory based on code hash for caching
+  const codeHash = createHash('sha256').update(convertedCode).digest('hex').substring(0, 16)
+  const projectDir = projectId 
+    ? join(process.cwd(), 'persistent-builds', projectId)
+    : join(process.cwd(), 'persistent-builds', codeHash)
   
   const startTime = Date.now()
 
@@ -262,33 +281,72 @@ export async function buildRustContract(sourceCode, projectId = null) {
     // Ensure base project exists
     await ensureBaseProject(baseProjectPath)
     
-    // Check if project already exists (for persistent builds)
-    const projectExists = existsSync(tempDir)
-    
-    if (!projectExists) {
-      await mkdir(tempDir, { recursive: true })
-      // Copy base project template
-      await copyDir(baseProjectPath, tempDir)
+    // Check if project already exists and code matches
+    const projectExists = existsSync(projectDir)
+    const libRsPath = join(projectDir, 'src', 'lib.rs')
+    // Check WASM in shared target first, then local target
+    let cachedWasmPath = join(sharedTargetDir, 'wasm32-unknown-unknown', 'release', 'contract.wasm')
+    if (!existsSync(cachedWasmPath)) {
+      cachedWasmPath = join(projectDir, 'target', 'wasm32-unknown-unknown', 'release', 'contract.wasm')
     }
     
-    // Convert old syntax to new syntax if needed
-    const convertedCode = convertToNewSyntax(sourceCode)
+    // Check if we can reuse existing build
+    if (projectExists && existsSync(libRsPath)) {
+      const existingCode = await readFile(libRsPath, 'utf-8')
+      if (existingCode === convertedCode && existsSync(cachedWasmPath)) {
+        // Code unchanged, reuse existing WASM
+        console.log(`✓ Reusing cached build for code hash: ${codeHash}`)
+        const wasmBuffer = await readFile(cachedWasmPath)
+        const wasmSize = wasmBuffer.length
+        
+        return {
+          success: true,
+          exit_code: 0,
+          stdout: 'Build reused from cache',
+          stderr: '',
+          wasm: wasmBuffer.toString('base64'),
+          wasmSize,
+          abi: null,
+          compilation_time: (Date.now() - startTime) / 1000,
+          project_path: projectDir,
+          cached: true
+        }
+      }
+    }
+    
+    // Need to build - setup project directory
+    if (!projectExists) {
+      await mkdir(projectDir, { recursive: true })
+      // Copy base project template (excluding target directory)
+      await copyDir(baseProjectPath, projectDir)
+    }
     
     // Write user's code to lib.rs
-    const libRsPath = join(tempDir, 'src', 'lib.rs')
     await writeFile(libRsPath, convertedCode, 'utf-8')
     
-    // Run cargo build with wasm32 target
-    console.log(`Compiling Rust contract in: ${tempDir}`)
+    // Run cargo build with wasm32 target using shared target directory
+    console.log(`Compiling Rust contract in: ${projectDir}`)
+    console.log(`Using shared target directory: ${sharedTargetDir}`)
+    
     const compileResult = await execAsync('cargo build --target wasm32-unknown-unknown --release', {
-      cwd: tempDir,
-      maxBuffer: 10 * 1024 * 1024 // 10MB buffer for large outputs
+      cwd: projectDir,
+      maxBuffer: 10 * 1024 * 1024, // 10MB buffer for large outputs
+      env: {
+        ...process.env,
+        CARGO_TARGET_DIR: sharedTargetDir // Use shared target for dependency caching
+      }
     })
     
     const compilationTime = (Date.now() - startTime) / 1000
     
-    // Extract WASM file - it's in target/wasm32-unknown-unknown/release/contract.wasm
-    const wasmPath = join(tempDir, 'target', 'wasm32-unknown-unknown', 'release', 'contract.wasm')
+    // Extract WASM file - with CARGO_TARGET_DIR, it's in shared-target/wasm32-unknown-unknown/release/contract.wasm
+    // The package name is "contract" from Cargo.toml, so the WASM will be contract.wasm
+    let wasmPath = join(sharedTargetDir, 'wasm32-unknown-unknown', 'release', 'contract.wasm')
+    
+    // Fallback: check local target (for backwards compatibility or if CARGO_TARGET_DIR wasn't used)
+    if (!existsSync(wasmPath)) {
+      wasmPath = join(projectDir, 'target', 'wasm32-unknown-unknown', 'release', 'contract.wasm')
+    }
     
     let wasmBuffer = null
     let wasmSize = 0
@@ -302,14 +360,16 @@ export async function buildRustContract(sourceCode, projectId = null) {
       } else {
         console.warn(`WASM file not found at: ${wasmPath}`)
         // Try to find any .wasm file in the release directory
-        const releaseDir = join(tempDir, 'target', 'wasm32-unknown-unknown', 'release')
+        const releaseDir = join(sharedTargetDir, 'wasm32-unknown-unknown', 'release')
         try {
-          const files = await readdir(releaseDir)
-          const wasmFile = files.find(f => f.endsWith('.wasm'))
-          if (wasmFile) {
-            wasmBuffer = await readFile(join(releaseDir, wasmFile))
-            wasmSize = wasmBuffer.length
-            console.log(`✓ Found WASM file: ${wasmFile} (${wasmSize} bytes)`)
+          if (existsSync(releaseDir)) {
+            const files = await readdir(releaseDir)
+            const wasmFile = files.find(f => f.endsWith('.wasm'))
+            if (wasmFile) {
+              wasmBuffer = await readFile(join(releaseDir, wasmFile))
+              wasmSize = wasmBuffer.length
+              console.log(`✓ Found WASM file: ${wasmFile} (${wasmSize} bytes)`)
+            }
           }
         } catch (dirError) {
           console.warn('Could not read release directory:', dirError.message)
@@ -323,10 +383,8 @@ export async function buildRustContract(sourceCode, projectId = null) {
       throw new Error('WASM file was not generated. Compilation may have failed.')
     }
     
-    // Cleanup temp directory if not using persistent builds
-    if (!projectId) {
-      await rm(tempDir, { recursive: true, force: true })
-    }
+    // Keep project directory for future reuse (don't cleanup)
+    // Only cleanup if explicitly requested (projectId === null and old behavior)
     
     return {
       success: true,
@@ -337,13 +395,12 @@ export async function buildRustContract(sourceCode, projectId = null) {
       wasmSize,
       abi,
       compilation_time: compilationTime,
-      project_path: tempDir
+      project_path: projectDir,
+      cached: false
     }
   } catch (error) {
-    // Cleanup on error (only if not persistent)
-    if (!projectId) {
-      await rm(tempDir, { recursive: true, force: true }).catch(() => {})
-    }
+    // Don't cleanup on error - keep for debugging
+    // Only cleanup if explicitly needed
     
     // Extract error information
     const exitCode = error.code || -1

@@ -9,10 +9,10 @@ import CodeEditor from './CodeEditor'
 import InfoPanel from './InfoPanel'
 import ConsolePanel from './ConsolePanel'
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://near-by-example-backend.fly.dev'
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001'
 
 function ExampleDetail({ example, onBack }) {
-  const [activeLanguage, setActiveLanguage] = useState(example.language || 'Rust')
+  const [activeLanguage, setActiveLanguage] = useState('JavaScript')
   const [activeInfoTab, setActiveInfoTab] = useState('ai')
   const [code, setCode] = useState('')
   const [consoleOutput, setConsoleOutput] = useState('')
@@ -39,6 +39,11 @@ function ExampleDetail({ example, onBack }) {
     setConsoleOutput((prev) => prev + message + '\n')
   }
 
+
+  // Reset active language to JavaScript when example changes
+  useEffect(() => {
+    setActiveLanguage('JavaScript')
+  }, [example.id])
 
   useEffect(() => {
     setCode(initialCode)
@@ -72,6 +77,11 @@ function ExampleDetail({ example, onBack }) {
     }
   }, [example.id])
 
+  // Reset deploying state on mount (in case user navigated away and came back)
+  useEffect(() => {
+    setIsDeploying(false)
+  }, [])
+
   // Handle transactionHashes URL parameter - redirect to success page
   useEffect(() => {
     // Check URL parameter on mount (for page reloads)
@@ -79,6 +89,8 @@ function ExampleDetail({ example, onBack }) {
     const transactionHashes = urlParams.get('transactionHashes')
     
     if (transactionHashes && !window.location.pathname.includes('/success')) {
+      // Reset deploying state before redirect
+      setIsDeploying(false)
       // Redirect to success page with transaction hash
       window.history.replaceState({}, '', `/examples/success?transactionHashes=${transactionHashes}`)
       window.location.href = `/examples/success?transactionHashes=${transactionHashes}`
@@ -87,11 +99,22 @@ function ExampleDetail({ example, onBack }) {
 
   // Handle transactionHashes URL parameter - check continuously for new transactions and redirect
   useEffect(() => {
+    let previousUrl = window.location.href
+    
     const checkAndRedirect = () => {
       const urlParams = new URLSearchParams(window.location.search)
       const transactionHashes = urlParams.get('transactionHashes')
+      const currentUrl = window.location.href
+      
+      // If URL changed (wallet redirect), reset deploying state
+      if (currentUrl !== previousUrl) {
+        setIsDeploying(false)
+        previousUrl = currentUrl
+      }
       
       if (transactionHashes && !window.location.pathname.includes('/success')) {
+        // Reset deploying state before redirect
+        setIsDeploying(false)
         // Redirect to success page
         window.history.replaceState({}, '', `/examples/success?transactionHashes=${transactionHashes}`)
         window.location.href = `/examples/success?transactionHashes=${transactionHashes}`
@@ -269,27 +292,58 @@ function ExampleDetail({ example, onBack }) {
         },
       }
 
-      const deployResult = await wallet.signAndSendTransaction({
-        signerId: accountIdCheck,
-        receiverId: targetAccountId,
-        actions: [deployAction],
-      })
+      // Set a timeout to reset deploying state if wallet doesn't respond
+      // This handles cases where the wallet redirects but the state wasn't reset
+      const deployTimeout = setTimeout(() => {
+        console.warn('Deploy timeout: Resetting deploying state (wallet may have redirected)')
+        setIsDeploying(false)
+      }, 30000) // 30 second timeout
 
-      addConsoleOutput('✓ Contract deployed successfully!')
-      
-      const txHash = deployResult?.transaction?.hash || 
-                    deployResult?.transactionHash ||
-                    deployResult?.receipts_outcome?.[0]?.id ||
-                    'pending'
+      try {
+        const deployResult = await wallet.signAndSendTransaction({
+          signerId: accountIdCheck,
+          receiverId: targetAccountId,
+          actions: [deployAction],
+        })
+        
+        clearTimeout(deployTimeout)
 
-      addConsoleOutput(`✓ Transaction hash: ${txHash}`)
-      addConsoleOutput(`✓ Contract available at: ${targetAccountId}`)
+        addConsoleOutput('✓ Contract deployed successfully!')
+        
+        const txHash = deployResult?.transaction?.hash || 
+                      deployResult?.transactionHash ||
+                      deployResult?.receipts_outcome?.[0]?.id ||
+                      'pending'
 
-      setDeployedContractId(targetAccountId)
-      setDeploymentTxHash(txHash)
-      
-      // Note: Modal will be shown after redirect via URL parameter handler
-      // The wallet redirects to external site, so we can't show modal here
+        addConsoleOutput(`✓ Transaction hash: ${txHash}`)
+        addConsoleOutput(`✓ Contract available at: ${targetAccountId}`)
+
+        setDeployedContractId(targetAccountId)
+        setDeploymentTxHash(txHash)
+        
+        // Note: Modal will be shown after redirect via URL parameter handler
+        // The wallet redirects to external site, so we can't show modal here
+        // Reset deploying state since transaction was sent (wallet will redirect)
+        setIsDeploying(false)
+      } catch (walletError) {
+        clearTimeout(deployTimeout)
+        // If wallet redirects, the error might be that we're being redirected
+        // In that case, reset the state and let the redirect handler take over
+        if (walletError.message && (
+          walletError.message.includes('redirect') || 
+          walletError.message.includes('User rejected') ||
+          walletError.message.includes('cancelled')
+        )) {
+          setIsDeploying(false)
+          if (walletError.message.includes('User rejected') || walletError.message.includes('cancelled')) {
+            addConsoleOutput('ℹ️  Deployment cancelled by user')
+          } else {
+            addConsoleOutput('ℹ️  Redirecting to wallet...')
+          }
+          throw walletError
+        }
+        throw walletError
+      }
     } catch (error) {
       if (error.name === 'TypeError' && error.message.includes('fetch')) {
         addConsoleOutput(`❌ Error: Failed to connect to backend`)

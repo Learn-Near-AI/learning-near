@@ -1,7 +1,7 @@
 // NFT examples
 export const nftsCode = {
   'nft-transfer': {
-    Rust: `use near_sdk::{near_bindgen, env, AccountId, borsh::{self, BorshDeserialize, BorshSerialize}};
+    Rust: `use near_sdk::{near_bindgen, env, AccountId, require, borsh::{self, BorshDeserialize, BorshSerialize}};
 use near_sdk::collections::UnorderedMap;
 
 #[derive(BorshDeserialize, BorshSerialize)]

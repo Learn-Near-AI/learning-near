@@ -258,7 +258,7 @@ class Contract {
 export default Contract;`,
   },
   'input-validation': {
-    Rust: `use near_sdk::{near_bindgen, env};
+    Rust: `use near_sdk::{near_bindgen, env, require};
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 
 #[near_bindgen]
@@ -431,7 +431,7 @@ impl Default for Contract {
 #[near_bindgen]
 impl Contract {
     pub fn set_message(&mut self, message: String) {
-        env::log_str(&format!("EVENT_JSON:{{\"event\":\"MessageUpdated\",\"new_message\":\"{}\"}}", message));
+        env::log_str(&format!("EVENT_JSON:{{\\\"event\\\":\\\"MessageUpdated\\\",\\\"new_message\\\":\\\"{}\\\"}}", message));
         self.message = message;
     }
 }`,

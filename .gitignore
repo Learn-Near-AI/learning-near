@@ -25,6 +25,8 @@ dist-ssr
 
 # Build artifacts
 temp-builds/
+persistent-builds/
+shared-target/
 *.wasm
 out/
 

@@ -21,23 +21,23 @@ function CodeEditor({
         <div className="inline-flex rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-near-darker overflow-hidden text-[0.65rem] md:text-xs">
           <button
             className={`px-3 py-1.5 font-semibold ${
-              activeLanguage === 'Rust'
-                ? 'bg-near-primary text-near-darker'
-                : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800'
-            }`}
-            onClick={() => setActiveLanguage('Rust')}
-          >
-            Rust
-          </button>
-          <button
-            className={`px-3 py-1.5 ${
               activeLanguage === 'JavaScript'
-                ? 'bg-near-primary text-near-darker font-semibold'
+                ? 'bg-near-primary text-near-darker'
                 : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800'
             }`}
             onClick={() => setActiveLanguage('JavaScript')}
           >
             JavaScript
+          </button>
+          <button
+            className={`px-3 py-1.5 ${
+              activeLanguage === 'Rust'
+                ? 'bg-near-primary text-near-darker font-semibold'
+                : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800'
+            }`}
+            onClick={() => setActiveLanguage('Rust')}
+          >
+            Rust
           </button>
         </div>
 

@@ -55,7 +55,7 @@ class Contract {
 export default Contract;`,
   },
   'todo-list': {
-    Rust: `use near_sdk::{near_bindgen, env, AccountId, borsh::{self, BorshDeserialize, BorshSerialize}};
+    Rust: `use near_sdk::{near_bindgen, env, AccountId, require, borsh::{self, BorshDeserialize, BorshSerialize}};
 use near_sdk::collections::Vector;
 
 #[derive(BorshDeserialize, BorshSerialize)]
@@ -200,7 +200,7 @@ class Contract {
 export default Contract;`,
   },
   'voting-system': {
-    Rust: `use near_sdk::{near_bindgen, env, AccountId, borsh::{self, BorshDeserialize, BorshSerialize}};
+    Rust: `use near_sdk::{near_bindgen, env, AccountId, require, borsh::{self, BorshDeserialize, BorshSerialize}};
 use near_sdk::collections::UnorderedSet;
 
 #[near_bindgen]
