@@ -9,7 +9,7 @@ import CodeEditor from './CodeEditor'
 import InfoPanel from './InfoPanel'
 import ConsolePanel from './ConsolePanel'
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001'
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://near-by-example-backend.fly.dev'
 
 function ExampleDetail({ example, onBack }) {
   const [activeLanguage, setActiveLanguage] = useState('JavaScript')
