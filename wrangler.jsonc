@@ -1,5 +1,5 @@
 {
-  "name": "learn-near",
+  "name": "learning-near",
   "compatibility_date": "2025-12-15",
   "main": "worker.js",
   "compatibility_flags": ["nodejs_compat"],
