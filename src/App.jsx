@@ -221,7 +221,7 @@ function App() {
               </button>
 
               {/* NEAR Wallet connect – only show in examples view */}
-              {currentPath === '/examples' && (
+              {currentPath.startsWith('/examples') && (
                 <div className="hidden md:block relative wallet-dropdown-container">
                   {walletAccountId ? (
                     <>
@@ -279,7 +279,7 @@ function App() {
               )}
 
               {/* Login & Sign Up Buttons – Finpay style */}
-              {currentPath !== '/examples' && (
+              {!currentPath.startsWith('/examples') && (
                 <div className="hidden md:flex items-center gap-3">
                   
                   <button
