@@ -100,7 +100,8 @@ impl Contract {
         maxBuffer: 10 * 1024 * 1024, // 10MB buffer
         env: {
           ...process.env,
-          CARGO_TARGET_DIR: sharedTargetDir
+          CARGO_TARGET_DIR: sharedTargetDir,
+          RUSTFLAGS: '-C link-arg=-s' // Strip symbols to reduce size
         }
       })
       console.log('Base project built successfully')
@@ -296,8 +297,32 @@ export async function buildRustContract(sourceCode, projectId = null) {
       if (existingCode === convertedCode && existsSync(cachedWasmPath)) {
         // Code unchanged, reuse existing WASM
         console.log(`✓ Reusing cached build for code hash: ${codeHash}`)
-        const wasmBuffer = await readFile(cachedWasmPath)
-        const wasmSize = wasmBuffer.length
+        let wasmBuffer = await readFile(cachedWasmPath)
+        let wasmSize = wasmBuffer.length
+        const originalSize = wasmSize
+        
+        // Try to optimize cached WASM as well (in case wasm-opt wasn't available before)
+        try {
+          const optimizedWasmPath = join(projectDir, 'contract_optimized.wasm')
+          const wasmOptResult = await execAsync(`wasm-opt -Oz -o "${optimizedWasmPath}" "${cachedWasmPath}"`, {
+            maxBuffer: 10 * 1024 * 1024,
+            timeout: 60000
+          })
+          
+          if (existsSync(optimizedWasmPath)) {
+            const optimizedBuffer = await readFile(optimizedWasmPath)
+            const optimizedSize = optimizedBuffer.length
+            if (optimizedSize < wasmSize) {
+              const reduction = ((originalSize - optimizedSize) / originalSize * 100).toFixed(1)
+              console.log(`✓ Cached WASM optimized: ${originalSize} → ${optimizedSize} bytes (${reduction}% reduction)`)
+              wasmBuffer = optimizedBuffer
+              wasmSize = optimizedSize
+              await rm(optimizedWasmPath, { force: true }).catch(() => {})
+            }
+          }
+        } catch (wasmOptError) {
+          // Ignore wasm-opt errors for cached builds
+        }
         
         return {
           success: true,
@@ -325,6 +350,7 @@ export async function buildRustContract(sourceCode, projectId = null) {
     await writeFile(libRsPath, convertedCode, 'utf-8')
     
     // Run cargo build with wasm32 target using shared target directory
+    // Apply size optimization flags during compilation
     console.log(`Compiling Rust contract in: ${projectDir}`)
     console.log(`Using shared target directory: ${sharedTargetDir}`)
     
@@ -333,7 +359,8 @@ export async function buildRustContract(sourceCode, projectId = null) {
       maxBuffer: 10 * 1024 * 1024, // 10MB buffer for large outputs
       env: {
         ...process.env,
-        CARGO_TARGET_DIR: sharedTargetDir // Use shared target for dependency caching
+        CARGO_TARGET_DIR: sharedTargetDir, // Use shared target for dependency caching
+        RUSTFLAGS: '-C link-arg=-s' // Strip symbols to reduce size
       }
     })
     
@@ -351,12 +378,42 @@ export async function buildRustContract(sourceCode, projectId = null) {
     let wasmBuffer = null
     let wasmSize = 0
     let abi = null
+    let originalSize = 0
     
     try {
       if (existsSync(wasmPath)) {
         wasmBuffer = await readFile(wasmPath)
-        wasmSize = wasmBuffer.length
-        console.log(`✓ WASM file compiled: ${wasmSize} bytes`)
+        originalSize = wasmBuffer.length
+        wasmSize = originalSize
+        console.log(`✓ WASM file compiled: ${originalSize} bytes`)
+        
+        // Apply wasm-opt optimization to further reduce size
+        try {
+          const optimizedWasmPath = join(projectDir, 'contract_optimized.wasm')
+          const wasmOptResult = await execAsync(`wasm-opt -Oz -o "${optimizedWasmPath}" "${wasmPath}"`, {
+            maxBuffer: 10 * 1024 * 1024,
+            timeout: 60000 // 60 second timeout
+          })
+          
+          if (existsSync(optimizedWasmPath)) {
+            const optimizedBuffer = await readFile(optimizedWasmPath)
+            const optimizedSize = optimizedBuffer.length
+            const reduction = ((originalSize - optimizedSize) / originalSize * 100).toFixed(1)
+            
+            console.log(`✓ WASM optimized: ${originalSize} → ${optimizedSize} bytes (${reduction}% reduction)`)
+            
+            // Use optimized WASM
+            wasmBuffer = optimizedBuffer
+            wasmSize = optimizedSize
+            
+            // Clean up temporary optimized file
+            await rm(optimizedWasmPath, { force: true }).catch(() => {})
+          }
+        } catch (wasmOptError) {
+          // wasm-opt might not be installed, continue with unoptimized WASM
+          console.warn('wasm-opt not available or failed (continuing with unoptimized WASM):', wasmOptError.message)
+          console.warn('To enable WASM optimization, install wasm-opt: npm install -g wasm-opt or binaryen')
+        }
       } else {
         console.warn(`WASM file not found at: ${wasmPath}`)
         // Try to find any .wasm file in the release directory
