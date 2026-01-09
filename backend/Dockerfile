@@ -21,11 +21,14 @@ COPY package*.json ./
 # Install Node.js dependencies (including dev dependencies for esbuild)
 RUN npm ci
 
+# Install NEAR CLI globally
+RUN npm install -g near-cli
+
 # Copy backend source code
 COPY . .
 
-# Create necessary directories for builds and caching
-RUN mkdir -p temp-builds base-project persistent-builds shared-target
+# Create necessary directories for builds, caching, and NEAR credentials
+RUN mkdir -p temp-builds base-project persistent-builds shared-target /root/.near-credentials
 
 # Expose port
 EXPOSE 3001

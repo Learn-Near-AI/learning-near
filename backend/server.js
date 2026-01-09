@@ -4,6 +4,7 @@ import { fileURLToPath } from 'url'
 import { dirname, join } from 'path'
 import { buildContract } from './build-contract.js'
 import { buildRustContract } from './build-rust-contract.js'
+import { deployContract, callContract, viewContract, areCredentialsConfigured } from './deploy-contract.js'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = dirname(__filename)
@@ -105,10 +106,141 @@ app.post('/api/compile', async (req, res) => {
   }
 })
 
+// Deploy contract endpoint
+app.post('/api/deploy', async (req, res) => {
+  try {
+    // Check if credentials are configured
+    if (!areCredentialsConfigured()) {
+      return res.status(503).json({ 
+        success: false,
+        error: 'NEAR CLI deployment not configured. Please set NEAR_ACCOUNT_ID and NEAR_PRIVATE_KEY environment variables.' 
+      })
+    }
+
+    const { wasmBase64, contractAccountId, initMethod, initArgs } = req.body
+
+    if (!wasmBase64) {
+      return res.status(400).json({ error: 'Missing wasmBase64' })
+    }
+
+    console.log('Deploying contract via NEAR CLI...')
+
+    // Convert base64 to buffer
+    const wasmBuffer = Buffer.from(wasmBase64, 'base64')
+
+    // Deploy contract
+    const result = await deployContract(wasmBuffer, {
+      contractAccountId,
+      initMethod: initMethod || 'new',
+      initArgs: initArgs || {}
+    })
+
+    res.json(result)
+  } catch (error) {
+    console.error('Deployment error:', error)
+    res.status(500).json({
+      success: false,
+      error: error.error || error.message,
+      details: error
+    })
+  }
+})
+
+// Call contract method endpoint
+app.post('/api/contract/call', async (req, res) => {
+  try {
+    if (!areCredentialsConfigured()) {
+      return res.status(503).json({ 
+        success: false,
+        error: 'NEAR CLI not configured. Please set NEAR_ACCOUNT_ID and NEAR_PRIVATE_KEY environment variables.' 
+      })
+    }
+
+    const { contractAccountId, methodName, args, accountId, deposit, gas } = req.body
+
+    if (!contractAccountId || !methodName) {
+      return res.status(400).json({ error: 'Missing contractAccountId or methodName' })
+    }
+
+    console.log(`Calling contract: ${contractAccountId}.${methodName}`)
+
+    const result = await callContract(contractAccountId, methodName, args || {}, { 
+      accountId, 
+      deposit, 
+      gas 
+    })
+    
+    res.json(result)
+  } catch (error) {
+    console.error('Contract call error:', error)
+    res.status(500).json({
+      success: false,
+      error: error.error || error.message,
+      stdout: error.stdout,
+      stderr: error.stderr
+    })
+  }
+})
+
+// View contract method endpoint (read-only)
+app.post('/api/contract/view', async (req, res) => {
+  try {
+    if (!areCredentialsConfigured()) {
+      return res.status(503).json({ 
+        success: false,
+        error: 'NEAR CLI not configured. Please set NEAR_ACCOUNT_ID and NEAR_PRIVATE_KEY environment variables.' 
+      })
+    }
+
+    const { contractAccountId, methodName, args } = req.body
+
+    if (!contractAccountId || !methodName) {
+      return res.status(400).json({ error: 'Missing contractAccountId or methodName' })
+    }
+
+    console.log(`Viewing contract: ${contractAccountId}.${methodName}`)
+
+    const result = await viewContract(contractAccountId, methodName, args || {})
+    
+    res.json(result)
+  } catch (error) {
+    console.error('Contract view error:', error)
+    res.status(500).json({
+      success: false,
+      error: error.error || error.message,
+      stdout: error.stdout,
+      stderr: error.stderr
+    })
+  }
+})
+
+// Check NEAR CLI configuration status
+app.get('/api/near/status', (req, res) => {
+  const configured = areCredentialsConfigured()
+  res.json({
+    configured,
+    accountId: configured ? process.env.NEAR_ACCOUNT_ID : null,
+    network: process.env.NEAR_NETWORK || 'testnet',
+    message: configured 
+      ? 'NEAR CLI is configured and ready' 
+      : 'NEAR CLI not configured. Set NEAR_ACCOUNT_ID and NEAR_PRIVATE_KEY environment variables.'
+  })
+})
+
 // Start server
 app.listen(PORT, () => {
   console.log(`🚀 Backend server running on http://localhost:${PORT}`)
   console.log(`📦 Compile endpoint: POST http://localhost:${PORT}/api/compile`)
+  console.log(`🚢 Deploy endpoint: POST http://localhost:${PORT}/api/deploy`)
+  console.log(`📞 Call endpoint: POST http://localhost:${PORT}/api/contract/call`)
+  console.log(`👁️  View endpoint: POST http://localhost:${PORT}/api/contract/view`)
+  console.log(`🔍 NEAR Status: GET http://localhost:${PORT}/api/near/status`)
+  
+  if (areCredentialsConfigured()) {
+    console.log(`✅ NEAR CLI configured for account: ${process.env.NEAR_ACCOUNT_ID} on ${process.env.NEAR_NETWORK || 'testnet'}`)
+  } else {
+    console.log(`⚠️  NEAR CLI not configured. Set NEAR_ACCOUNT_ID and NEAR_PRIVATE_KEY to enable deployment.`)
+  }
 })
 
 

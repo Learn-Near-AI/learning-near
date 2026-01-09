@@ -23,14 +23,35 @@ The server will start on `http://localhost:3001` (or the port specified in the `
 
 ## API Endpoints
 
+### Compilation
 - `GET /api/health` - Health check endpoint
 - `POST /api/compile` - Compile a contract
   - Body: `{ code: string, language: 'JavaScript' | 'TypeScript' | 'Rust' }`
   - Returns: `{ success: boolean, wasm: string (base64), size: number }`
 
+### NEAR CLI Deployment (New!)
+- `GET /api/near/status` - Check NEAR CLI configuration status
+- `POST /api/deploy` - Deploy a compiled contract to NEAR
+  - Body: `{ wasmBase64: string, contractAccountId?: string, initMethod?: string, initArgs?: object }`
+  - Returns: `{ success: boolean, contractId: string, transactionHash: string, explorerUrl: string }`
+- `POST /api/contract/call` - Call a contract method (state-changing)
+  - Body: `{ contractAccountId: string, methodName: string, args?: object, deposit?: string, gas?: string }`
+- `POST /api/contract/view` - View a contract method (read-only)
+  - Body: `{ contractAccountId: string, methodName: string, args?: object }`
+
+See [DEPLOY-CLI.md](./DEPLOY-CLI.md) for detailed deployment documentation.
+
 ## Environment Variables
 
+### Server
 - `PORT` - Server port (default: 3001)
+
+### NEAR CLI Deployment
+- `NEAR_ACCOUNT_ID` - NEAR account for deployments (required for deployment features)
+- `NEAR_PRIVATE_KEY` - Private key for the account (format: `ed25519:...`)
+- `NEAR_NETWORK` - Network to use (`testnet` or `mainnet`, default: `testnet`)
+
+See [ENVIRONMENT.md](./ENVIRONMENT.md) for detailed configuration instructions.
 
 ## WASM Optimization
 

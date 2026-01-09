@@ -5,7 +5,8 @@
   "private": true,
   "scripts": {
     "dev": "node server.js",
-    "start": "node server.js"
+    "start": "node server.js",
+    "test:deploy": "node test-near-deploy.js"
   },
   "dependencies": {
     "cors": "^2.8.5",
