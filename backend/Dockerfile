@@ -18,11 +18,20 @@ WORKDIR /app
 # Copy package files
 COPY package*.json ./
 
-# Install Node.js dependencies (including dev dependencies for esbuild)
-RUN npm ci
+# Install Node.js dependencies (including dev dependencies for esbuild and near-sdk-js)
+RUN npm install
+
+# Pre-install near-sdk-js for JS/TS compilation caching (speeds up compilation 20-30x)
+RUN npm install near-sdk-js@2.0.0 --legacy-peer-deps
 
 # Install NEAR CLI globally
 RUN npm install -g near-cli
+
+# Install additional build tools needed for near-sdk-js compilation
+RUN apt-get update && \
+    apt-get install -y python3 make g++ && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
 
 # Copy backend source code
 COPY . .

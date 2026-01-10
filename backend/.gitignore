@@ -1,0 +1,27 @@
+# Node modules
+node_modules/
+
+# Build directories
+temp-builds/
+persistent-builds/
+shared-target/
+base-project/target/
+
+# Logs
+*.log
+npm-debug.log*
+
+# Environment variables
+.env
+.env.local
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+
+# Test outputs
+test-output/
