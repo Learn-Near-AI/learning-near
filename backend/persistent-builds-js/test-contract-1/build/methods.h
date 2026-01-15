@@ -1,0 +1,3 @@
+DEFINE_NEAR_METHOD(default)
+DEFINE_NEAR_METHOD(get_balance)
+DEFINE_NEAR_METHOD(set_balance)

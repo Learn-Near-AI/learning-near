@@ -1,0 +1,2 @@
+DEFINE_NEAR_METHOD(get_owner)
+DEFINE_NEAR_METHOD(set_owner)

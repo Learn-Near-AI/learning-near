@@ -2,7 +2,7 @@ import express from 'express'
 import cors from 'cors'
 import { fileURLToPath } from 'url'
 import { dirname, join } from 'path'
-import { buildContract } from './build-contract.js'
+import { buildContract, initializeTemplate } from './build-contract-optimized.js'
 import { buildRustContract } from './build-rust-contract.js'
 import { deployContract, callContract, viewContract, areCredentialsConfigured } from './deploy-contract.js'
 
@@ -227,14 +227,32 @@ app.get('/api/near/status', (req, res) => {
   })
 })
 
-// Start server
-app.listen(PORT, () => {
+// Start server with template initialization
+// Listen on 0.0.0.0 to allow connections from Windows when running in WSL
+app.listen(PORT, '0.0.0.0', async () => {
   console.log(`🚀 Backend server running on http://localhost:${PORT}`)
+  console.log(`   Also accessible from Windows at: http://172.28.200.112:${PORT}`)
   console.log(`📦 Compile endpoint: POST http://localhost:${PORT}/api/compile`)
   console.log(`🚢 Deploy endpoint: POST http://localhost:${PORT}/api/deploy`)
   console.log(`📞 Call endpoint: POST http://localhost:${PORT}/api/contract/call`)
   console.log(`👁️  View endpoint: POST http://localhost:${PORT}/api/contract/view`)
   console.log(`🔍 NEAR Status: GET http://localhost:${PORT}/api/near/status`)
+  
+  // Initialize contract template for optimized builds
+  try {
+    console.log('📦 Initializing contract template (this happens once)...')
+    await initializeTemplate()
+    console.log('✅ Contract template initialized successfully')
+  } catch (error) {
+    if (error.message.includes('Windows') || error.message.includes('not supported')) {
+      console.warn(`⚠️  JavaScript/TypeScript compilation not available on Windows`)
+      console.warn(`   ${error.message}`)
+      console.warn('   This is expected. The server will still run, but JS/TS compilation will fail gracefully.')
+    } else {
+      console.warn(`⚠️  Template initialization failed: ${error.message}`)
+      console.warn('   JavaScript/TypeScript compilation may be slower on first build')
+    }
+  }
   
   if (areCredentialsConfigured()) {
     console.log(`✅ NEAR CLI configured for account: ${process.env.NEAR_ACCOUNT_ID} on ${process.env.NEAR_NETWORK || 'testnet'}`)

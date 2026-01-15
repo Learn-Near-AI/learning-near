@@ -1,0 +1,2 @@
+DEFINE_NEAR_METHOD(default)
+DEFINE_NEAR_METHOD(hello_world)

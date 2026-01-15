@@ -1,0 +1,452 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NEAR Contract Compiler</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2rem;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            opacity: 0.9;
+            font-size: 0.9rem;
+        }
+
+        .content {
+            padding: 30px;
+        }
+
+        .editor-section {
+            margin-bottom: 30px;
+        }
+
+        .editor-section label {
+            display: block;
+            font-weight: 600;
+            margin-bottom: 10px;
+            color: #333;
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        #contractCode {
+            width: 100%;
+            min-height: 400px;
+            padding: 15px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            resize: vertical;
+            transition: border-color 0.3s;
+        }
+
+        #contractCode:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 30px;
+        }
+
+        button {
+            flex: 1;
+            padding: 15px 30px;
+            font-size: 1rem;
+            font-weight: 600;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        #compileBtn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        #compileBtn:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        #compileBtn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        #clearBtn {
+            background: #f5f5f5;
+            color: #666;
+        }
+
+        #clearBtn:hover {
+            background: #e0e0e0;
+        }
+
+        .result-section {
+            margin-top: 30px;
+        }
+
+        .result-box {
+            padding: 20px;
+            border-radius: 8px;
+            margin-top: 15px;
+            display: none;
+        }
+
+        .result-box.show {
+            display: block;
+        }
+
+        .result-box.success {
+            background: #d4edda;
+            border: 2px solid #28a745;
+            color: #155724;
+        }
+
+        .result-box.error {
+            background: #f8d7da;
+            border: 2px solid #dc3545;
+            color: #721c24;
+        }
+
+        .result-box h3 {
+            margin-bottom: 10px;
+            font-size: 1.1rem;
+        }
+
+        .result-box p {
+            margin: 5px 0;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9rem;
+        }
+
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 20px;
+            color: #667eea;
+        }
+
+        .loading.show {
+            display: block;
+        }
+
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 10px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .example-section {
+            margin-top: 30px;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 8px;
+        }
+
+        .example-section h3 {
+            margin-bottom: 15px;
+            color: #333;
+        }
+
+        .example-btn {
+            padding: 8px 16px;
+            margin: 5px 5px 5px 0;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 0.85rem;
+            transition: background 0.3s;
+        }
+
+        .example-btn:hover {
+            background: #5568d3;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🚀 NEAR Contract Compiler</h1>
+            <p>Write and compile JavaScript NEAR smart contracts</p>
+        </div>
+
+        <div class="content">
+            <div class="editor-section">
+                <label for="contractCode">Contract Code (JavaScript)</label>
+                <textarea id="contractCode" placeholder="Write your NEAR contract code here..."></textarea>
+            </div>
+
+            <div class="button-group">
+                <button id="compileBtn" onclick="compileContract()">Compile Contract</button>
+                <button id="clearBtn" onclick="clearEditor()">Clear</button>
+            </div>
+
+            <div class="loading" id="loading">
+                <div class="spinner"></div>
+                <p>Compiling contract... Please wait.</p>
+            </div>
+
+            <div class="result-section">
+                <div id="resultBox" class="result-box"></div>
+            </div>
+
+            <div class="example-section">
+                <h3>📝 Example Contracts</h3>
+                <button class="example-btn" onclick="loadExample('counter')">Counter Contract</button>
+                <button class="example-btn" onclick="loadExample('greeting')">Greeting Contract</button>
+                <button class="example-btn" onclick="loadExample('storage')">Storage Contract</button>
+                <button class="example-btn" onclick="loadExample('hello_world')">Hello World Contract</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const BACKEND_URL = 'http://localhost:3001';
+
+        const examples = {
+            counter: `import { NearBindgen, view, call } from "near-sdk-js";
+
+@NearBindgen({})
+class CounterContract {
+  count = 0;
+
+  @view({})
+  get_count() {
+    return this.count;
+  }
+
+  @call({})
+  increment() {
+    this.count += 1;
+    near.log(\`Count is now: \${this.count}\`);
+  }
+
+  @call({})
+  decrement() {
+    this.count -= 1;
+    near.log(\`Count is now: \${this.count}\`);
+  }
+
+  @call({})
+  reset() {
+    this.count = 0;
+    near.log("Count reset to 0");
+  }
+}`,
+
+            greeting: `import { NearBindgen, view, call } from "near-sdk-js";
+
+@NearBindgen({})
+class GreetingContract {
+  greeting = "Hello";
+
+  @view({})
+  get_greeting() {
+    return this.greeting;
+  }
+
+  @call({})
+  set_greeting({ message }) {
+    this.greeting = message;
+    near.log(\`Greeting set to: \${message}\`);
+  }
+}`,
+
+            storage: `import { NearBindgen, view, call } from "near-sdk-js";
+
+@NearBindgen({})
+class StorageContract {
+  data = {};
+
+  @view({})
+  get({ key }) {
+    return this.data[key] || null;
+  }
+
+  @call({})
+  set({ key, value }) {
+    this.data[key] = value;
+    near.log(\`Set \${key} = \${value}\`);
+  }
+
+  @call({})
+  remove({ key }) {
+    delete this.data[key];
+    near.log(\`Removed \${key}\`);
+  }
+
+  @view({})
+  list() {
+    return Object.keys(this.data);
+  }
+}`,
+
+            hello_world: `import { NearBindgen, view } from "near-sdk-js";
+
+@NearBindgen({})
+class HelloWorldContract {
+  @view({})
+  hello_world() {
+    return "Hello, NEAR!";
+  }
+}`
+        };
+
+        function loadExample(name) {
+            const code = examples[name];
+            if (code) {
+                document.getElementById('contractCode').value = code;
+                hideResult();
+            }
+        }
+
+        function clearEditor() {
+            document.getElementById('contractCode').value = '';
+            hideResult();
+        }
+
+        function showLoading() {
+            document.getElementById('loading').classList.add('show');
+            document.getElementById('compileBtn').disabled = true;
+            hideResult();
+        }
+
+        function hideLoading() {
+            document.getElementById('loading').classList.remove('show');
+            document.getElementById('compileBtn').disabled = false;
+        }
+
+        function showResult(success, message, details = {}) {
+            const resultBox = document.getElementById('resultBox');
+            resultBox.className = `result-box ${success ? 'success' : 'error'}`;
+            resultBox.classList.add('show');
+
+            let html = `<h3>${success ? '✅ Success!' : '❌ Error'}</h3>`;
+            html += `<p><strong>${message}</strong></p>`;
+
+            if (success && details.size) {
+                html += `<p>WASM Size: ${details.size.toLocaleString()} bytes</p>`;
+                html += `<p>Compilation Time: ${details.compilation_time || 'N/A'}</p>`;
+            }
+
+            if (!success && details.error) {
+                html += `<p style="margin-top: 10px; white-space: pre-wrap; font-size: 0.85rem;">${details.error}</p>`;
+            }
+
+            resultBox.innerHTML = html;
+        }
+
+        function hideResult() {
+            document.getElementById('resultBox').classList.remove('show');
+        }
+
+        async function compileContract() {
+            const code = document.getElementById('contractCode').value.trim();
+
+            if (!code) {
+                showResult(false, 'Please enter contract code');
+                return;
+            }
+
+            showLoading();
+
+            try {
+                const response = await fetch(`${BACKEND_URL}/api/compile`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        code: code,
+                        language: 'JavaScript'
+                    })
+                });
+
+                const data = await response.json();
+
+                hideLoading();
+
+                if (response.ok && data.success) {
+                    showResult(true, 'Contract compiled successfully!', {
+                        size: data.size,
+                        compilation_time: data.compilation_time
+                    });
+                } else {
+                    showResult(false, 'Compilation failed', {
+                        error: data.message || data.error || 'Unknown error'
+                    });
+                }
+            } catch (error) {
+                hideLoading();
+                showResult(false, 'Failed to connect to backend', {
+                    error: error.message || 'Make sure the backend server is running on http://localhost:3001'
+                });
+            }
+        }
+
+        // Allow Ctrl+Enter to compile
+        document.getElementById('contractCode').addEventListener('keydown', (e) => {
+            if (e.ctrlKey && e.key === 'Enter') {
+                compileContract();
+            }
+        });
+
+        // Load counter example by default
+        window.addEventListener('DOMContentLoaded', () => {
+            loadExample('counter');
+        });
+    </script>
+</body>
+</html>
